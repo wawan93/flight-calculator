@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -9,19 +10,31 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"flights-test/config"
 	"flights-test/internal/controllers/calculate"
 	"flights-test/internal/services/calculator"
 )
 
 func main() {
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run() error {
 	calculatorService := &calculator.Calculator{}
 	handler := calculate.NewCalculateController(calculatorService)
 
 	root := mux.NewRouter()
 	root.Handle("/calculate", handler)
 
+	cfg, err := config.FromEnv()
+	if err != nil {
+		return fmt.Errorf("error parsing config: %w", err)
+	}
+
 	server := http.Server{
-		Addr:    ":8080",
+		Addr:    fmt.Sprintf(":%s", cfg.HTTPListenPort),
 		Handler: root,
 	}
 
@@ -38,12 +51,13 @@ func main() {
 	}()
 
 	log.Println("starting server on port 8080")
-	err := server.ListenAndServe()
+
+	err = server.ListenAndServe()
 	if err != http.ErrServerClosed {
-		log.Fatal(err)
+		return fmt.Errorf("error starting server: %w", err)
 	}
 
 	<-done
-
-	log.Println("server stopped by user")
+	log.Println("server stopped")
+	return nil
 }
